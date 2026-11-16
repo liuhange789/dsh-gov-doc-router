@@ -78,3 +78,26 @@ test('附件与抄送标签的半角冒号被报出并修复为全角', () => {
   const recheck = analyzeDocument(result.fixedContent, '通知')
   assert.ok(!recheck.issues.some((issue) => issue.rule_id.endsWith('.colon')))
 })
+
+test('半角括号且紧跟文字的二级标题被修复且幂等', () => {
+  const content = '关于开展专项检查的通知\n各县（市）区人民政府：\n(一)工作目标\n请认真落实。\n某市人民政府\n2026年11月16日'
+  const once = analyzeDocument(content, '通知')
+  assert.ok(once.issues.some((issue) => issue.rule_id === 'heading.numbering' && issue.auto_fixed))
+  assert.ok(once.fixedContent.includes('（一）工作目标'), '(一) 应改为 （一）')
+  const twice = analyzeDocument(once.fixedContent, '通知')
+  assert.ok(!twice.issues.some((issue) => issue.rule_id === 'heading.numbering'), '二次不应再报层次序数')
+  assert.equal(twice.fixedContent, once.fixedContent, '修复应幂等')
+})
+
+test('附件说明块只在整体前补一次空行', () => {
+  const content = '关于开展专项检查的通知\n各县（市）区人民政府：\n请认真落实。\n附件：目录\n附件1：任务清单\n附件2：统计表\n某市人民政府\n2026年11月16日'
+  const fixed = fixDocument(parseDocument(content, '通知')).content
+  const lines = fixed.split('\n')
+  const first = lines.findIndex((line) => line.includes('附件：目录'))
+  assert.ok(first > 0)
+  assert.equal(lines[first - 1], '', '附件块整体前应空一行')
+  assert.ok(lines[first + 1].includes('附件1：任务清单'))
+  assert.ok(lines[first + 2].includes('附件2：统计表'))
+  assert.ok(!fixed.includes('附件：目录\n\n附件1'), '附件1 前不应再插空行')
+  assert.ok(!fixed.includes('附件1：任务清单\n\n附件2'), '附件2 前不应再插空行')
+})
