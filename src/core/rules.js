@@ -9,6 +9,7 @@ import {
   DATE_COMPACT_RE,
   DATE_FULL_RE,
   DOC_NUMBER_RE,
+  HEADING_SERIAL_RE,
   INDENT,
   cleanText,
   findDate,
@@ -257,7 +258,7 @@ export const RULES = [
       if (badParens) {
         return fail(this, '二级标题应使用全角括号「（一）」，不使用半角括号。', locate(badParens, '标题层次'))
       }
-      const badSerial = doc.filled.find((line) => /^\d+、/.test(cleanText(line.text)))
+      const badSerial = doc.filled.find((line) => HEADING_SERIAL_RE.test(cleanText(line.text)))
       if (badSerial) {
         return fail(this, '第三层标题序数应写作「1.」，不使用「1、」。', locate(badSerial, '标题层次'))
       }
