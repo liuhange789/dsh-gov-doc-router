@@ -24,7 +24,7 @@ dsh plugin --profile default add D:\dsh-gov-doc-router
       name: '@liuhange/dsh-gov-doc-router'
 ```
 
-可选配置：输出目录。留空则写到当前工作目录。
+可选配置：输出目录。留空则写到当前工作目录；支持 `~` 展开到用户主目录。
 
 ```yaml
 - id: gov-doc-router
@@ -53,7 +53,7 @@ dsh plugin --profile default add D:\dsh-gov-doc-router
 | --- | --- | --- |
 | `content` | 是 | 公文草稿，纯文本或 Markdown。按行识别标题、发文字号、主送机关、正文、附件说明、落款、抄送。 |
 | `doc_type` | 是 | `请示` / `报告` / `通知` / `函` / `纪要` / `通报`。用于校验标题是否含文种，并写入导出文件名。 |
-| `output_path` | 否 | 以 `.docx` 结尾视为完整路径，否则视为目录；留空用插件配置 `outputDir`。 |
+| `output_path` | 否 | 以 `.docx` 结尾视为完整路径，否则视为目录；留空用插件配置 `outputDir`。支持 `~` 展开，相对路径按当前工作目录解析。同名文件已存在时自动追加 `(1)`、`(2)`……，不会静默覆盖。 |
 
 返回：
 
@@ -65,13 +65,13 @@ dsh plugin --profile default add D:\dsh-gov-doc-router
   ],
   "fixed_content": "……",
   "fix_summary": ["第 3 行：发文字号年份括号改为〔〕"],
-  "download_url": "D:/公文/公文-请示-20261116120000.docx",
+  "download_url": "D:/公文/公文-请示-20261116120000123.docx",
   "applied_export_rules": ["title.font", "body.font", "heading.font", "page.number", "page.line-spacing"],
   "stats": { "characters": 1200, "lines": 24, "issues": 3, "auto_fixed": 2 }
 }
 ```
 
-`download_url` 是本地绝对路径（正斜杠），直接打开或拖进 Word 即可。
+`download_url` 是本地绝对路径（正斜杠），直接打开或拖进 Word 即可。默认文件名用系统本地时间精确到毫秒，避免同一秒内多次导出撞名。
 
 ## 规则清单
 
@@ -127,7 +127,9 @@ dsh plugin --profile default add D:\dsh-gov-doc-router
 npm test
 ```
 
-22 个测试，覆盖：15 条文本规则的命中与不误报（规范样本零误报）、自动修复的幂等性与"不伪造"约束、以及解包 `.docx` 断言真实 XML（字体、字号、560 twips 固定行距、居中/首行缩进/右对齐、A4 版心、页码域与奇偶页设置、抄送版记边框）。
+`npm test` 会先执行 `scripts/build.mjs`：esbuild 打包为单文件 `lib/index.js`，开启 minify、去掉第三方 legal comments，`@deepseek-ai/*` 保持 external，`docx`/`fflate` 内联，产物可直接离线加载（约 240KB，压缩前约 490KB）。
+
+31 个测试，覆盖：15 条文本规则的命中与不误报（规范样本零误报）、自动修复的幂等性与"不伪造"约束（含句中数字不被误改、`(一)工作目标` 紧跟文字可修、附件块只补一次空行、日期「号」→「日」）、无标题纯正文不套标题样式、`output_path` 的 `~` 展开与不覆盖，以及解包 `.docx` 断言真实 XML（字体、字号、560 twips 固定行距、居中/首行缩进/右对齐、A4 版心、页码域与奇偶页设置、抄送版记边框）。
 
 ## License
 
