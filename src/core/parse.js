@@ -27,9 +27,15 @@ const CN_DIGITS = {
 const YEAR_SRC = '(?:\\d{4}|[〇零一二三四五六七八九]{4})'
 const NUM_SRC = '(?:\\d{1,2}|[一二三四五六七八九十]{1,3})'
 
-export const DATE_FULL_RE = new RegExp(`(${YEAR_SRC})\\s*年\\s*(${NUM_SRC})\\s*月\\s*(${NUM_SRC})\\s*日`)
+export const DATE_FULL_RE = new RegExp(`(${YEAR_SRC})\\s*年\\s*(${NUM_SRC})\\s*月\\s*(${NUM_SRC})\\s*(?:日|号)`)
 export const DATE_COMPACT_RE = new RegExp(`(${YEAR_SRC})\\s*[.\\-/．]\\s*(${NUM_SRC})\\s*[.\\-/．]\\s*(${NUM_SRC})`)
 export const DOC_NUMBER_RE = /([〔\[（(])\s*(\d{4})\s*([〕\]）)])\s*(?:第\s*)?(\d+)\s*号/
+
+/**
+ * 第三层标题序数：只认行首「1、」，允许前置空白（含全角空格）。
+ * 1-3 位数字且序数后不是数字，避免把「1、2项工作」「2026、2027年度预算」当标题。
+ */
+export const HEADING_SERIAL_RE = /^([\s\u3000]*)(\d{1,3})、(?!\d)/
 
 export function cleanText(text) {
   return String(text ?? '')
@@ -112,6 +118,16 @@ export function isRecipientLine(text) {
   return /[：:]$/.test(clean) && !isCcLine(clean) && !isAttachmentLine(clean)
 }
 
+const TITLE_MAX_CHARS = 40
+
+/** 没有发文字号和主送机关时，用于判断首行是否真的像标题。 */
+function isPlausibleTitle(text) {
+  const clean = cleanText(text)
+  if (!clean) return false
+  if (clean.length > TITLE_MAX_CHARS) return false
+  return !/[。！？]$/.test(clean)
+}
+
 /**
  * @param {string} content
  * @param {string} docType
@@ -134,10 +150,15 @@ export function parseDocument(content, docType) {
     !isCcLine(line.text)
 
   // 有主送机关时，标题应当紧邻主送机关上方（中间可夹发文字号）；没有主送机关时取第一行。
+  // 既无发文字号也无主送机关时，第一行若像长句（超长或带句号），不把它当标题，交由规则报缺失。
   const recipientProbe = filled.find((line) => isRecipientLine(line.text)) ?? null
-  const titleLine = recipientProbe
-    ? [...filled].reverse().find((line) => line.index < recipientProbe.index && isTitleCandidate(line)) ?? null
-    : filled.find(isTitleCandidate) ?? null
+  let titleLine = null
+  if (recipientProbe) {
+    titleLine = [...filled].reverse().find((line) => line.index < recipientProbe.index && isTitleCandidate(line)) ?? null
+  } else {
+    const firstCandidate = filled.find(isTitleCandidate) ?? null
+    titleLine = firstCandidate && (docNumberLine || isPlausibleTitle(firstCandidate.text)) ? firstCandidate : null
+  }
 
   const afterTitle = titleLine ? filled.filter((line) => line.index > titleLine.index) : filled
   const recipientLine = afterTitle.find((line) => isRecipientLine(line.text)) ?? null
@@ -154,6 +175,7 @@ export function parseDocument(content, docType) {
     attachmentLines.length ? attachmentLines[0].index : Number.POSITIVE_INFINITY,
     dateLine ? dateLine.index : Number.POSITIVE_INFINITY,
     ccLine ? ccLine.index : Number.POSITIVE_INFINITY,
+    signatureLine ? signatureLine.index : Number.POSITIVE_INFINITY,
   )
   const bodyLines = filled.filter((line) => line.index >= bodyStart && line.index < bodyEnd)
 
