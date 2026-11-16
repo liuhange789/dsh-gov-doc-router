@@ -134,3 +134,42 @@ test('非法文种回落为通知', () => {
   const result = analyzeDocument(CLEAN, '不存在的文种')
   assert.equal(result.docType, '通知')
 })
+
+test('句中的数字顿号不被当作层次序数改写', () => {
+  const body = '全年1、2项工作同步推进，5、6月开展检查。\n编制2026、2027年度预算时同步论证。'
+  const content = `关于开展专项检查的通知\n各县（市）区人民政府：\n${body}\n某市人民政府\n2026年11月16日`
+  const once = analyzeDocument(content, '通知')
+  const twice = analyzeDocument(once.fixedContent, '通知')
+  assert.ok(once.fixedContent.includes('1、2项工作同步推进，5、6月开展检查'), '句中数字不得改写')
+  assert.ok(once.fixedContent.includes('2026、2027年度预算'), '年份顿号不得改写')
+  assert.ok(!once.issues.some((issue) => issue.rule_id === 'heading.numbering'), '不应误报层次序数')
+  assert.equal(twice.fixedContent, once.fixedContent, '对该正文的修复应幂等')
+})
+
+test('无附件抄送时落款行不被当正文缩进', () => {
+  const content = '关于开展安全检查的通知\n各县（市）区人民政府：\n　　请认真落实。\n某市人民政府\n2026年11月16日'
+  const result = analyzeDocument(content, '通知')
+  assert.ok(!result.issues.some((issue) => issue.rule_id === 'body.indent'), '落款行不应报 body.indent')
+  assert.ok(!result.issues.some((issue) => issue.rule_id === 'signature.block'))
+})
+
+test('日期以「号」结尾时被识别并规范为「日」', () => {
+  const content = '关于开展安全检查的通知\n各县（市）区人民政府：\n　　请认真落实。\n某市人民政府\n2026年11月16号'
+  const result = analyzeDocument(content, '通知')
+  const found = ids(result.issues)
+  assert.ok(found.includes('date.format'), '应报成文日期格式问题')
+  assert.ok(!found.includes('signature.block'), '日期行不应导致落款缺失')
+  assert.ok(!found.includes('body.indent'), '日期行不应被当正文缩进')
+  assert.match(result.fixedContent, /2026年11月16日$/)
+  assert.equal(analyzeDocument(result.fixedContent, '通知').issues.length, 0)
+})
+
+test('无标题纯正文不把首行当标题，也不删首段句号', () => {
+  const content = '为深入排查安全隐患，现将有关事项通知如下。\n请各单位于12月10日前反馈。\n某市人民政府\n2026年11月16日'
+  const result = analyzeDocument(content, '通知')
+  const issue = result.issues.find((item) => item.rule_id === 'title.present')
+  assert.ok(issue, '应报标题缺失')
+  assert.equal(issue.severity, 'error')
+  assert.equal(result.parsed.title, null)
+  assert.ok(result.fixedContent.includes('通知如下。'), '不得删除首段句号')
+})
