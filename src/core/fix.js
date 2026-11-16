@@ -7,6 +7,7 @@
 
 import {
   DOC_NUMBER_RE,
+  HEADING_SERIAL_RE,
   INDENT,
   cleanText,
   findDate,
@@ -17,6 +18,7 @@ import {
 } from './parse.js'
 
 const TRAILING_PUNCTUATION = /[。，；、,;]$/
+const HEADING_ASCII_PARENS = /^([\s\u3000]*)\(\s*([一二三四五六七八九十]+)\s*\)/
 
 function normalizeDocNumber(text) {
   const match = DOC_NUMBER_RE.exec(text)
@@ -61,24 +63,21 @@ function normalizeCc(text) {
 }
 
 function normalizeHeading(text) {
-  const clean = cleanText(text)
-  if (!/^\s*\(?\s*[一二三四五六七八九十]+\s*\)?[、.]?\s/.test(clean) && !/^\s*\d+[、.．]/.test(clean)) {
-    return { text, note: null }
-  }
+  const parenMatch = HEADING_ASCII_PARENS.exec(text)
+  const serialMatch = HEADING_SERIAL_RE.exec(text)
+  if (!parenMatch && !serialMatch) return { text, note: null }
   let next = text
-  let changed = false
-  if (/\d+、/.test(clean)) {
-    next = next.replace(/\d+、/, (token) => token.replace('、', '.'))
-    changed = true
+  const notes = []
+  if (parenMatch) {
+    next = next.replace(HEADING_ASCII_PARENS, (_, lead, numeral) => `${lead}（${numeral}）`)
+    notes.push('二级标题半角括号改为全角括号')
   }
-  if (/^\s*\(\s*[一二三四五六七八九十]+\s*\)/.test(clean)) {
-    next = next.replace(/^\s*\(\s*[一二三四五六七八九十]+\s*\)/, (token) =>
-      token.replace('(', '（').replace(')', '）'),
-    )
-    changed = true
+  if (serialMatch) {
+    next = next.replace(HEADING_SERIAL_RE, (_, lead, numeral) => `${lead}${numeral}.`)
+    notes.push('三级标题「、」改为「.」')
   }
-  if (!changed) return { text, note: null }
-  return { text: next, note: `标题层次序数「${clean}」改为「${cleanText(next)}」` }
+  if (next === text) return { text, note: null }
+  return { text: next, note: `标题层次序数「${cleanText(text)}」改为「${cleanText(next)}」` }
 }
 
 /**
@@ -147,7 +146,7 @@ export function fixDocument(doc) {
 
     if (note) summary.push(`第 ${line.lineNumber} 行：${note}`)
 
-    if (isAttachmentLine(text) && output.length && !isBlank(output[output.length - 1])) {
+    if (isAttachmentLine(text) && output.length && !isBlank(output[output.length - 1]) && !isAttachmentLine(output[output.length - 1])) {
       output.push('')
       summary.push(`第 ${line.lineNumber} 行：附件说明前补空行`)
     }
