@@ -5,7 +5,6 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import path from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
@@ -13,6 +12,7 @@ import { analyzeDocument } from '../core/analyze.js'
 import { buildDocx } from '../core/docx.js'
 import { DOC_TYPES } from '../core/parse.js'
 import { EXPORT_RULES, EXPORT_SPEC } from '../core/rules.js'
+import { resolveTargetFile } from './output.js'
 
 export const name = 'gov-doc-router'
 export const inject = ['tools']
@@ -21,28 +21,6 @@ export const Config = z.object({
   /** .docx 输出目录；留空表示当前工作目录。 */
   outputDir: z.string().default(''),
 })
-
-function normalizeOutputDir(value) {
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  if (trimmed.startsWith('~')) return path.join(homedir(), trimmed.slice(1) || '')
-  return trimmed
-}
-
-function resolveTargetFile(requestedPath, configuredDir, docType) {
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-  const filename = `公文-${docType}-${stamp}.docx`
-  const baseDir = normalizeOutputDir(configuredDir) || process.cwd()
-  if (typeof requestedPath === 'string' && requestedPath.trim()) {
-    const candidate = requestedPath.trim()
-    if (candidate.toLowerCase().endsWith('.docx')) {
-      return path.resolve(candidate)
-    }
-    return path.resolve(candidate, filename)
-  }
-  return path.resolve(baseDir, filename)
-}
 
 const OUTPUT_SCHEMA = {
   type: 'object',
