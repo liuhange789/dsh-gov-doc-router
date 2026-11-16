@@ -1,0 +1,49 @@
+{
+  "name": "@liuhange/dsh-gov-doc-router",
+  "version": "0.1.0",
+  "description": "GB/T 9704 政务公文格式校验与自动修复：检查版头、主体、版记高频格式问题，输出修复文本、修改清单与符合规范的 .docx。Check and auto-fix Chinese government document formatting against GB/T 9704, then export a compliant .docx. No content generation, no external APIs.",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "gov-doc",
+    "gbt-9704",
+    "公文",
+    "公文格式",
+    "格式校验",
+    "docx"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test test/rules.test.js test/fix.test.js test/docx.test.js",
+    "prepack": "node scripts/build.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.1 <0.2.0",
+    "@deepseek-ai/schemastery": ">=3.18.0 <4"
+  },
+  "devDependencies": {
+    "docx": "^9.5.1",
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.3"
+  }
+}
