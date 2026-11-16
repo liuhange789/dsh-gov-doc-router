@@ -1,6 +1,6 @@
 {
   "name": "@liuhange/dsh-gov-doc-router",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GB/T 9704 政务公文格式校验与自动修复：检查版头、主体、版记高频格式问题，输出修复文本、修改清单与符合规范的 .docx。Check and auto-fix Chinese government document formatting against GB/T 9704, then export a compliant .docx. No content generation, no external APIs.",
   "type": "module",
   "main": "./lib/index.js",
@@ -26,7 +26,12 @@
     "公文",
     "公文格式",
     "格式校验",
-    "docx"
+    "docx",
+    "dsh",
+    "公文格式检查",
+    "政务公文",
+    "ooxml",
+    "word"
   ],
   "license": "MIT",
   "engines": {
@@ -45,5 +50,14 @@
     "docx": "^9.5.1",
     "esbuild": "^0.25.0",
     "fflate": "^0.8.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liuhange789/dsh-gov-doc-router.git"
+  },
+  "homepage": "https://github.com/liuhange789/dsh-gov-doc-router#readme",
+  "bugs": {
+    "url": "https://github.com/liuhange789/dsh-gov-doc-router/issues"
+  },
+  "author": "liuhange"
 }
