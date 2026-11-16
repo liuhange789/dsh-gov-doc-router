@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 import { strFromU8, unzipSync } from 'fflate'
 import { analyzeDocument } from '../src/core/analyze.js'
 import { buildDocx } from '../src/core/docx.js'
+import { resolveTargetFile } from '../src/host/output.js'
 
 const SAMPLE = `福州市人民政府办公厅关于开展安全生产大检查的通知
 福政发〔2026〕1号
@@ -89,4 +93,36 @@ test('正文内容完整写入且不含 Markdown 标题符号', async () => {
   assert.ok(xml.includes('为深入排查安全隐患'))
   assert.ok(xml.includes('安全生产检查表'))
   assert.ok(!xml.includes('##'))
+})
+
+test('无标题纯正文导出不把首段套成标题样式', async () => {
+  const content = '为深入排查安全隐患，现将有关事项通知如下。\n请各单位于12月10日前反馈。\n某市人民政府\n2026年11月16日'
+  const result = analyzeDocument(content, '通知')
+  assert.equal(result.parsed.title, null)
+  const buffer = await buildDocx(result.fixedContent, '通知')
+  const xml = readZip(buffer).read('word/document.xml')
+  assert.ok(xml.includes('仿宋_GB2312'))
+  assert.ok(!xml.includes('小标宋体'), '无标题时首段不应套用标题字体')
+  assert.ok(xml.includes('为深入排查安全隐患'))
+})
+
+test('output_path 的 ~ 展开到用户主目录并返回绝对路径', () => {
+  const target = resolveTargetFile('~/gov-doc-router-test.docx', '', '通知')
+  assert.ok(path.isAbsolute(target))
+  assert.ok(target.startsWith(homedir()), `应落在主目录下，实际为 ${target}`)
+})
+
+test('output_path 同名文件不覆盖，自动追加序号且默认文件名精确到毫秒', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'gov-doc-router-'))
+  const now = new Date(2026, 10, 16, 12, 0, 0, 123)
+  try {
+    const first = resolveTargetFile(dir, '', '通知', now)
+    assert.equal(path.basename(first), '公文-通知-20261116120000123.docx')
+    writeFileSync(first, 'occupied')
+    const second = resolveTargetFile(dir, '', '通知', now)
+    assert.equal(path.basename(second), '公文-通知-20261116120000123(1).docx')
+    assert.equal(readFileSync(first, 'utf8'), 'occupied', '原文件不得被覆盖')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
